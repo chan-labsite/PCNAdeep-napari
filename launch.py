@@ -33,7 +33,7 @@ def save(sv):
 
 
 @magicgui(labels=True, result_widget=True)
-def create_or_replace(track_A: int, track_B: int, frame: int):
+def create_or_replace(track_A: int, track_B: int=0, frame: int=0):
     global viewer
     if track_B < 1:
         track_B = None
@@ -43,8 +43,10 @@ def create_or_replace(track_A: int, track_B: int, frame: int):
 
 
 @magicgui(labels=True, result_widget=True)
-def delete(track: int, frame=None):
+def delete(track: int, frame: int=0):
     global viewer
+    if frame < 1:
+        frame = None
     msg = viewer.delete_track(track, frame)
     viewer.refresh()
     return msg

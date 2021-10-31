@@ -1,3 +1,4 @@
+import time
 import napari
 import skimage.io as io
 import pandas as pd
@@ -8,6 +9,8 @@ import numpy as np
 from pcnaDeep.data.utils import find_daugs, align_table_and_mask, expand_bbox, getDetectInput
 import skimage.measure as measure
 
+def get_current_time():
+    return time.strftime('%H:%M:%S')
 
 class PCNA_Viewer(napari.Viewer):
 
@@ -315,15 +318,16 @@ class PCNA_Viewer(napari.Viewer):
         track.to_csv(self.track_path, index=None)
         self.saved = track.copy()
         self.track = track.copy()
-        print('Saved.')
-        return 'Saved.'
+        msg = 'Saved: ' + get_current_time() + '.'
+        return msg
 
     def revert(self):
         """Revert to last saved version.
         """
         self.layers[2].data = self.mask.copy()
         self.track = self.saved.copy()
-        return 'Reverted.'
+        msg = 'Reverted: ' + get_current_time() + '.'
+        return msg
 
     def getAnn(self):
         """Add an annotation column to tracked object table
