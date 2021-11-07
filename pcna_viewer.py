@@ -12,6 +12,16 @@ import skimage.measure as measure
 def get_current_time():
     return time.strftime('%H:%M:%S')
 
+def get_layer_id_by_name(viewer, nm):
+    """Get index of layer in the napari.viewer by its name
+    """
+    count = 0
+    for i in viewer.layers:
+        if i.name == nm:
+            return count
+        count += 1
+    return
+
 class PCNA_Viewer(napari.Viewer):
 
     def __init__(self, track_path, mask_path, 
@@ -272,7 +282,7 @@ class PCNA_Viewer(napari.Viewer):
         if trk_id not in self.track['trackId']:
             raise ValueError('Selected track is not in the table.')
 
-        mask = self.layers[2].data
+        mask = self.layers[get_layer_id_by_name(self, 'segm')].data
         del_trk = self.track[self.track['trackId'] == trk_id]
         if frame is None:
             # For all direct daughter of the track to delete, first remove association
@@ -296,7 +306,7 @@ class PCNA_Viewer(napari.Viewer):
             mask[frame, :, :] = msk_slice
             self.track = self.track.drop(index=self.track[(self.track['trackId'] == trk_id) &
                                                           (self.track['frame'] == frame)].index)
-        self.layers[2].data = mask
+        self.layers[get_layer_id_by_name(self, 'segm')].data = mask
         msg = 'Deleted track ' + str(trk_id) + '.'
         print(msg)
         return msg
@@ -304,11 +314,12 @@ class PCNA_Viewer(napari.Viewer):
     def save(self, mask_flag=True):
         """Save current table.
         """
-        mask = self.layers[2].data
+        mask = self.layers[get_layer_id_by_name(self, 'segm')].data
         track = self.track.copy()
         if mask_flag:
             mask, track = align_table_and_mask(track, mask, align_morph=True, align_int=True, 
-                                               pcna=self.layers[0].data, bf=self.layers[1].data)
+                                               pcna=self.layers[get_layer_id_by_name(self, 'pcna')].data, 
+                                               bf=self.layers[get_layer_id_by_name(self, 'bf')].data)
             if int(np.max(mask)) <= 255:
                 io.imsave(self.mask_path, mask.astype('uint8'))
             else:
@@ -324,7 +335,7 @@ class PCNA_Viewer(napari.Viewer):
     def revert(self):
         """Revert to last saved version.
         """
-        self.layers[2].data = self.mask.copy()
+        self.layers[get_layer_id_by_name(self, 'segm')].data = self.mask.copy()
         self.track = self.saved.copy()
         msg = 'Reverted: ' + get_current_time() + '.'
         return msg
@@ -420,7 +431,7 @@ class PCNA_Viewer(napari.Viewer):
             cls (str): Cell cycle classification.
         """
         BBOX_FACTOR = 2  # dilate the bounding box when calculating the background intensity.
-        mask = self.layers[2].data
+        mask = self.layers[get_layer_id_by_name(self, 'segm')].data
         h, w = mask.shape[1], mask.shape[2]
         msk_slice = mask[frame, :, :]
         trk_slice = self.track[self.track['frame'] == frame]
@@ -491,8 +502,8 @@ class PCNA_Viewer(napari.Viewer):
         # Register object inensity
         b1, b3, b2, b4 = expand_bbox(p.bbox, BBOX_FACTOR, (h,w))
         obj_region = misc[b1:b2, b3:b4].copy()
-        its_region = self.layers[0].data[frame, b1:b2, b3:b4].copy()
-        dic_region = self.layers[1].data[frame, b1:b2, b3:b4].copy()
+        its_region = self.layers[get_layer_id_by_name(self, 'pcna')].data[frame, b1:b2, b3:b4].copy()
+        dic_region = self.layers[get_layer_id_by_name(self, 'bf')].data[frame, b1:b2, b3:b4].copy()
         if 0 not in obj_region:
             new_row['background_mean'] = 0
         else:
@@ -511,20 +522,21 @@ class PCNA_Viewer(napari.Viewer):
         return msg
 
     def get_mx(self, frame):
-        mask = self.layers[2].data
+        mask = self.layers[get_layer_id_by_name(self, 'segm')].data
         return int(np.max(mask[frame,:,:]))
 
     def refresh(self):
         self.getAnn()
         track_data = self.track.loc[:][['trackId', 'frame', 'Center_of_the_object_1', 'Center_of_the_object_0']]
         track_data = track_data.to_numpy()
-        self.layers[3].data = track_data
+        self.layers[get_layer_id_by_name(self, 'tracks')].data = track_data
         label_data = self.track.loc[:][['frame', 'Center_of_the_object_1', 'Center_of_the_object_0']]
         label_data = label_data.to_numpy()
-        self.layers[4].properties.clear()
-        self.layers[4].data = label_data
-        self.layers[4].properties['name'] = self.track.loc[:]['name'].to_numpy()
-        self.layers[4].refresh_text()
+        nm_idx = get_layer_id_by_name(self, 'name')
+        self.layers[nm_idx].properties.clear()
+        self.layers[nm_idx].data = label_data
+        self.layers[nm_idx].properties['name'] = self.track.loc[:]['name'].to_numpy()
+        self.layers[nm_idx].refresh_text()
 
     def doCorrect(self):
         """Iteration for user command input.
